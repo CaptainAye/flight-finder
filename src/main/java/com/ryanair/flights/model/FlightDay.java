@@ -5,8 +5,6 @@ import java.util.Collections;
 import java.util.List;
 
 public class FlightDay {
-    private static final int MIN_DAY = 1;
-    private static final int MAX_DAY = 31;
 
     private final int day;
     private final List<Flight> flights;

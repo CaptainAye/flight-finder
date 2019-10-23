@@ -1,6 +1,6 @@
 package com.ryanair.flights.model;
 
-public class Destination {
+public class Route {
     private final String airportFrom;
     private final String airportTo;
     private final String connectingAirport;
@@ -9,7 +9,7 @@ public class Destination {
     private final String operator;
     private final String group;
 
-    public Destination(String airportFrom, String airportTo, String connectingAirport, boolean newRoute, boolean seasonalRoute, String operator, String group) {
+    public Route(String airportFrom, String airportTo, String connectingAirport, boolean newRoute, boolean seasonalRoute, String operator, String group) {
         this.airportFrom = airportFrom;
         this.airportTo = airportTo;
         this.connectingAirport = connectingAirport;

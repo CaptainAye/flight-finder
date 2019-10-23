@@ -23,10 +23,10 @@ public class Leg {
         this.arrivalAirport = arrivalAirport;
         this.departureDateTime = departureDateTime;
         this.arrivalDateTime = arrivalDateTime;
-        //validateNotEmpty();
+        validateNotEmpty();
     }
 
-    /*private void validateNotEmpty() {
+    private void validateNotEmpty() {
         boolean departureAirportIsEmpty = departureAirport == null || departureAirport.isEmpty();
         boolean arrivalAirportIsEmpty = arrivalAirport == null || arrivalAirport.isEmpty();
         boolean departureDateTimeIsNull = departureDateTime == null;
@@ -35,7 +35,7 @@ public class Leg {
         if (departureAirportIsEmpty || arrivalAirportIsEmpty || departureDateTimeIsNull || arrivalDateTimeIsNull) {
             throw new IllegalArgumentException("Leg arguments cannot be null nor empty");
         }
-    }*/
+    }
 
     public String getDepartureAirport() {
         return departureAirport;

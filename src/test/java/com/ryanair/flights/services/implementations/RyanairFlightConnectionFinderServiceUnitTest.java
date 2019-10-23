@@ -1,7 +1,11 @@
 package com.ryanair.flights.services.implementations;
 
-import com.ryanair.flights.model.*;
+import com.ryanair.flights.model.FlightConnection;
+import com.ryanair.flights.model.FlightSearchAttributes;
+import com.ryanair.flights.model.Leg;
+import com.ryanair.flights.model.Route;
 import com.ryanair.flights.services.interfaces.FlightFinderService;
+import com.ryanair.flights.services.interfaces.RouteService;
 import com.ryanair.flights.services.interfaces.ScheduleService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,60 +16,268 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.Month;
-import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 @ActiveProfiles({"unit", "all"})
+@DisplayName("FlightFinderService unit tests")
 public class RyanairFlightConnectionFinderServiceUnitTest {
 
+    private Duration minTransferTime = Duration.ofHours(2);
+
+    private Route mockWroDubRoute = new Route("WRO", "DUB", null, false, false, "RYANAIR",
+            "ETHNIC");
+    private Route mockWroStnRoute = new Route("WRO", "STN", null, false, false, "RYANAIR",
+            "ETHNIC");
+    private Route mockStnDubRoute = new Route("STN", "DUB", null, false, false, "RYANAIR",
+            "ETHNIC");
+
+    private LocalDateTime date_2019_10_31_14_30 = LocalDateTime.of(2019, Month.OCTOBER, 31, 14, 30);
+    private LocalDateTime date_2019_10_31_9_30 = LocalDateTime.of(2019, Month.OCTOBER, 31, 9, 30);
+    private LocalDateTime date_2019_10_31_12_30 = LocalDateTime.of(2019, Month.OCTOBER, 31, 12, 30);
+    private LocalDateTime date_2019_10_31_15_30 = LocalDateTime.of(2019, Month.OCTOBER, 31, 15, 30);
+    Leg stnDubAfternoonFlight = new Leg("STN", "DUB", date_2019_10_31_14_30, date_2019_10_31_15_30);
+    private LocalDateTime date_2019_10_31_18_30 = LocalDateTime.of(2019, Month.OCTOBER, 31, 18, 30);
+    private LocalDateTime date_2019_10_31_19_30 = LocalDateTime.of(2019, Month.OCTOBER, 31, 19, 30);
+    Leg stnDubEveningFlight = new Leg("STN", "DUB", date_2019_10_31_18_30, date_2019_10_31_19_30);
+    private Leg wroDubFlight = new Leg("WRO", "DUB", date_2019_10_31_12_30, date_2019_10_31_15_30);
+    private Leg wroStnMorningFlight = new Leg("WRO", "STN", date_2019_10_31_9_30,
+            date_2019_10_31_12_30);
+    private Leg wroStnAfternoonFlight = new Leg("WRO", "STN", date_2019_10_31_12_30,
+            date_2019_10_31_15_30);
     private FlightFinderService flightFinderService;
+
+    private FlightConnection expectedTransferFlight1 =
+            new FlightConnection(Arrays.asList(wroStnMorningFlight
+                    , stnDubEveningFlight));
+    private FlightConnection expectedTransferFlight2 =
+            new FlightConnection(Arrays.asList(wroStnMorningFlight
+                    , stnDubAfternoonFlight));
+    private FlightConnection expectedTransferFlight3 =
+            new FlightConnection(Arrays.asList(wroStnAfternoonFlight, stnDubEveningFlight));
+
+    private List<FlightConnection> expectedTransferFlightConnections =
+            Arrays.asList(expectedTransferFlight1,
+                    expectedTransferFlight2, expectedTransferFlight3);
+
+    private List<FlightConnection> expectedDirectFlightConnections = Collections.singletonList(
+            new FlightConnection(Collections.singletonList(wroDubFlight)));
 
     @Mock
     private ScheduleService scheduleService;
 
+    @Mock
+    private RouteService routeService;
+
     @BeforeEach
     private void setup() {
         MockitoAnnotations.initMocks(this);
-        flightFinderService = new RyanairFlightFinderService(scheduleService);
+        flightFinderService = new RecursiveFlightFinderService(scheduleService, routeService);
     }
 
     @Test
-    @DisplayName("given ryanair direct flights are available findFlights should return list of direct flights")
-    public void givenOnlyDirectFlightsAvailable_whenSearchingFlights_shouldReturnDirectFlights() {
+    @DisplayName("given ryanair direct flights are in schedule findFlights should return list of " +
+            "direct flights")
+    public void givenOnlyDirectFlightsInSchedule_whenSearchingFlightsWithOneStopMax_shouldReturnDirectFlights() {
+        int maxStops = 1;
+        LocalDateTime actualStartDateTime = LocalDateTime.of(2019, Month.OCTOBER, 31, 9, 30);
+        LocalDateTime actualEndDateTime = LocalDateTime.of(2019, Month.NOVEMBER, 1, 15, 30);
+        Leg actualDestination = new Leg("WRO", "DUB", actualStartDateTime, actualEndDateTime);
+        FlightSearchAttributes attributes = new FlightSearchAttributes(maxStops, minTransferTime);
 
-        Flight mockWroDubFlight1 = new Flight("2104",
-                LocalTime.of(12, 30),
-                LocalTime.of(15, 30));
-        Flight mockWroDubFlight2 = new Flight("1204",
-                LocalTime.of(9, 30),
-                LocalTime.of(12, 30));
-        FlightDay mockWroDubFlightDay1 = new FlightDay(10, Collections.singletonList(mockWroDubFlight1));
-        FlightDay mockWroDubFlightDay2 = new FlightDay(31, Collections.singletonList(mockWroDubFlight2));
-        Schedule mockWroDubSchedule = new Schedule(Month.OCTOBER,
-                Arrays.asList(mockWroDubFlightDay1, mockWroDubFlightDay2));
+        setupMocksForRoutes();
+        setupMocksForDirectFlightTest(actualStartDateTime, actualEndDateTime);
 
-        Mockito.when(scheduleService.getSchedules("WRO", "DUB",
-                YearMonth.of(2019, Month.OCTOBER), YearMonth.of(2019, Month.NOVEMBER))).
-                thenReturn(Collections.singletonList(mockWroDubSchedule));
+        List<FlightConnection> actualFlightConnections =
+                flightFinderService.findFlights(actualDestination, attributes);
 
-        Leg expectedLeg = new Leg("WRO", "DUB",
-                LocalDateTime.of(2019, Month.OCTOBER, 31, 9, 30),
-                LocalDateTime.of(2019, Month.OCTOBER, 31, 12, 30));
-        List<FlightConnection> expectedFlightConnections = Collections.singletonList(
-                new FlightConnection(Collections.singletonList(expectedLeg)));
+        Assertions.assertEquals(expectedDirectFlightConnections, actualFlightConnections);
+    }
 
-        Leg legToFind = new Leg("WRO", "DUB",
-                LocalDateTime.of(2019, Month.OCTOBER, 31, 9, 30),
-                LocalDateTime.of(2019,Month.NOVEMBER, 1, 15, 30));
-
-        List<FlightConnection> actualFlightConnections = flightFinderService.findFlights(legToFind);
-        Assertions.assertEquals(expectedFlightConnections, actualFlightConnections);
+    private void setupMocksForDirectFlightTest(LocalDateTime actualStartDateTime,
+                                               LocalDateTime actualEndDateTime) {
+        Mockito.when(scheduleService.getRouteFlights(mockWroDubRoute, actualStartDateTime,
+                actualEndDateTime))
+                .thenReturn(Collections.singletonList(wroDubFlight));
 
     }
 
+    @Test
+    @DisplayName("Given only one stop flight are in schedule when findFligts with maxStops=1 " +
+            "should return FlightConnections with one stop")
+    void givenOnlyOneStopFlightsInSchedule_whenSearchingFlightWithOneStopMax_shouldReturnFlightConnectionsWithOneStop() {
+        int maxStops = 1;
+        LocalDateTime actualStartDateTime = LocalDateTime.of(2019, Month.OCTOBER, 30, 7, 0);
+        LocalDateTime actualEndDateTime = LocalDateTime.of(2019, Month.OCTOBER, 31, 20, 0);
+        Leg actualDestination = new Leg("WRO", "DUB", actualStartDateTime, actualEndDateTime);
+        FlightSearchAttributes attributes = new FlightSearchAttributes(maxStops, minTransferTime);
+
+        setupMocksForRoutes();
+        setupMocksForOneStopTest(actualStartDateTime, actualEndDateTime);
+
+        List<FlightConnection> actualFlightConnections =
+                flightFinderService.findFlights(actualDestination, attributes);
+
+        Assertions.assertEquals(expectedTransferFlightConnections, actualFlightConnections);
+    }
+
+    @Test
+    @DisplayName("Given only one stop flight are in schedule when findFlight with maxStops=0 " +
+            "should return empty list")
+    void givenOnlyOneStopFlightsInSchedule_whenSearchingFlightWithZeroStopMax_shouldReturnEmptyList() {
+        int maxStops = 0;
+        LocalDateTime actualStartDateTime = LocalDateTime.of(2019, Month.OCTOBER, 30, 7, 0);
+        LocalDateTime actualEndDateTime = LocalDateTime.of(2019, Month.OCTOBER, 31, 20, 0);
+        Leg actualDestination = new Leg("WRO", "DUB", actualStartDateTime, actualEndDateTime);
+        FlightSearchAttributes attributes = new FlightSearchAttributes(maxStops, minTransferTime);
+
+        setupMocksForRoutes();
+        setupMocksForOneStopTest(actualStartDateTime, actualEndDateTime);
+
+        List<FlightConnection> actualFlightConnections =
+                flightFinderService.findFlights(actualDestination, attributes);
+
+        Assertions.assertEquals(Collections.emptyList(), actualFlightConnections);
+    }
+
+    private void setupMocksForRoutes() {
+        Mockito.when(routeService.getRoutes()).thenReturn(Arrays.asList(mockWroDubRoute,
+                mockWroStnRoute, mockStnDubRoute));
+    }
+
+    private void setupMocksForOneStopTest(LocalDateTime actualStartDateTime,
+                                          LocalDateTime actualEndDateTime) {
+
+        Mockito.when(scheduleService.getRouteFlights(mockWroStnRoute, actualStartDateTime,
+                actualEndDateTime))
+                .thenReturn(Arrays.asList(wroStnMorningFlight, wroStnAfternoonFlight));
+        LocalDateTime stnDunMorningStartTime =
+                wroStnMorningFlight.getArrivalDateTime().plus(minTransferTime);
+        LocalDateTime stnDunAfternoonStartTime =
+                wroStnAfternoonFlight.getArrivalDateTime().plus(minTransferTime);
+        Mockito.when(scheduleService.getRouteFlights(mockStnDubRoute,
+                stnDunMorningStartTime, actualEndDateTime))
+                .thenReturn(Arrays.asList(stnDubEveningFlight, stnDubAfternoonFlight));
+        Mockito.when(scheduleService.getRouteFlights(mockStnDubRoute,
+                stnDunAfternoonStartTime, actualEndDateTime))
+                .thenReturn(Collections.singletonList(stnDubEveningFlight));
+    }
+
+    @Test
+    void givenDirectAndInterconnectionFlightsAvailable_whenSearchingFlightsWithOneStopMax_shouldReturnDirectAndInterconnectionFlights() {
+        int maxStops = 1;
+        LocalDateTime actualStartDateTime = LocalDateTime.of(2019, Month.OCTOBER, 30, 7, 0);
+        LocalDateTime actualEndDateTime = LocalDateTime.of(2019, Month.OCTOBER, 31, 20, 0);
+        Leg actualDestination = new Leg("WRO", "DUB", actualStartDateTime, actualEndDateTime);
+
+        setupMocksForRoutes();
+        setupMocksForDirectFlightTest(actualStartDateTime, actualEndDateTime);
+        setupMocksForOneStopTest(actualStartDateTime, actualEndDateTime);
+
+        List<FlightConnection> expectedFlightConnections =
+                new ArrayList<>(expectedDirectFlightConnections);
+        expectedFlightConnections.addAll(expectedTransferFlightConnections);
+
+        FlightSearchAttributes attributes = new FlightSearchAttributes(maxStops, minTransferTime);
+
+        List<FlightConnection> actualFlightConnections =
+                flightFinderService.findFlights(actualDestination, attributes);
+
+        Assertions.assertEquals(expectedFlightConnections, actualFlightConnections);
+    }
+
+    @Test
+    @DisplayName("Given no transfer flights when findFlights() should return empty list")
+    void givenNoTransferFlights_whenFindFlights_shouldReturnEmptyList() {
+        int maxStops = 1;
+        FlightSearchAttributes attributes = new FlightSearchAttributes(maxStops, minTransferTime);
+        LocalDateTime actualStartDateTime = LocalDateTime.of(2019, Month.OCTOBER, 30, 7, 0);
+        LocalDateTime actualEndDateTime = LocalDateTime.of(2019, Month.OCTOBER, 31, 20, 0);
+        Leg actualDestination = new Leg("WRO", "DUB", actualStartDateTime, actualEndDateTime);
+        setupMocksForRoutes();
+        Mockito.when(scheduleService.getRouteFlights(mockWroStnRoute, actualStartDateTime,
+                actualEndDateTime)).thenReturn(Arrays.asList(wroStnMorningFlight,
+                wroStnAfternoonFlight));
+        LocalDateTime stnDunMorningStartTime =
+                wroStnMorningFlight.getArrivalDateTime().plus(minTransferTime);
+        LocalDateTime stnDunAfternoonStartTime =
+                wroStnAfternoonFlight.getArrivalDateTime().plus(minTransferTime);
+        Mockito.when(scheduleService.getRouteFlights(mockStnDubRoute,
+                stnDunMorningStartTime, actualEndDateTime))
+                .thenReturn(Collections.emptyList());
+        Mockito.when(scheduleService.getRouteFlights(mockStnDubRoute,
+                stnDunAfternoonStartTime, actualEndDateTime))
+                .thenReturn(Collections.emptyList());
+        List<FlightConnection> actualFlightConnections =
+                flightFinderService.findFlights(actualDestination, attributes);
+
+        Assertions.assertEquals(Collections.emptyList(), actualFlightConnections);
+    }
+
+    @Test
+    @DisplayName("When destination is null findFlights should throw IllegalArgumentException")
+    void whenDestinationIsNull_shouldThrowIllegalArgumentException() {
+        int maxStops = 1;
+        FlightSearchAttributes attributes = new FlightSearchAttributes(maxStops, minTransferTime);
+        Assertions.assertThrows(IllegalArgumentException.class,
+                () -> flightFinderService.findFlights(null, attributes));
+    }
+
+    @Test
+    @DisplayName("When max number of stops < 0 findFlights should throw IllegalArgumentException")
+    void whenMaxStopsLesserThan0_shouldThrowIllegalArgumentException() {
+        LocalDateTime actualStartDateTime = LocalDateTime.of(2019, Month.OCTOBER, 30, 7, 0);
+        LocalDateTime actualEndDateTime = LocalDateTime.of(2019, Month.OCTOBER, 31, 20, 0);
+        Leg actualDestination = new Leg("WRO", "DUB", actualStartDateTime, actualEndDateTime);
+        Assertions.assertThrows(IllegalArgumentException.class,
+                () -> flightFinderService.findFlights(actualDestination, null));
+    }
+
+    @Test
+    @DisplayName("Given no routes available when findFlights should return empty list of " +
+            "FlightConnections")
+    void givenNoRoutes_whenFindFlightsWroDub_shouldReturnEmptyList() {
+        int maxStops = 1;
+        FlightSearchAttributes attributes = new FlightSearchAttributes(maxStops, minTransferTime);
+        LocalDateTime actualStartDateTime = LocalDateTime.of(2019, Month.OCTOBER, 30, 7, 0);
+        LocalDateTime actualEndDateTime = LocalDateTime.of(2019, Month.OCTOBER, 31, 20, 0);
+        Mockito.when(routeService.getRoutes()).thenReturn(null);
+        Leg actualDestination = new Leg("WRO", "DUB", actualStartDateTime, actualEndDateTime);
+        Assertions.assertEquals(Collections.emptyList(),
+                flightFinderService.findFlights(actualDestination, attributes));
+        Mockito.when(routeService.getRoutes()).thenReturn(Collections.emptyList());
+        Assertions.assertEquals(Collections.emptyList(),
+                flightFinderService.findFlights(actualDestination, attributes));
+    }
+
+    @Test
+    @DisplayName("Given no schedules for dates from Wroclaw available when findFlights() WRO-DUB" +
+            " should return empty list of FlightConnections")
+    void givenNoSchedule_whenFindFlightsWroDub_shouldReturnEmptyList() {
+        int maxStops = 1;
+        FlightSearchAttributes attributes = new FlightSearchAttributes(maxStops, minTransferTime);
+        LocalDateTime actualStartDateTime = LocalDateTime.of(2019, Month.OCTOBER, 30, 7, 0);
+        LocalDateTime actualEndDateTime = LocalDateTime.of(2019, Month.OCTOBER, 31, 20, 0);
+        setupMocksForRoutes();
+
+        Mockito.when(scheduleService.getRouteFlights(mockWroDubRoute, actualStartDateTime,
+                actualEndDateTime)).thenReturn(null);
+        Mockito.when(scheduleService.getRouteFlights(mockWroStnRoute, actualStartDateTime,
+                actualEndDateTime)).thenReturn(null);
+
+        Leg actualDestination = new Leg("WRO", "DUB", actualStartDateTime, actualEndDateTime);
+        Assertions.assertEquals(Collections.emptyList(),
+                flightFinderService.findFlights(actualDestination, attributes));
+        Mockito.when(scheduleService.getRouteFlights(mockWroDubRoute, actualStartDateTime,
+                actualEndDateTime)).thenReturn(Collections.emptyList());
+        Mockito.when(scheduleService.getRouteFlights(mockWroStnRoute, actualStartDateTime,
+                actualEndDateTime)).thenReturn(Collections.emptyList());
+        Assertions.assertEquals(Collections.emptyList(),
+                flightFinderService.findFlights(actualDestination, attributes));
+    }
 }
