@@ -2,11 +2,11 @@ package com.ryanair.flights.model;
 
 import java.time.Duration;
 
-public class FlightSearchAttributes {
+public class SearchCriteria {
     private final Duration minimalTransferTime;
     private int maxStops;
 
-    public FlightSearchAttributes(int maxStops, Duration minimalTransferTime) {
+    public SearchCriteria(int maxStops, Duration minimalTransferTime) {
         this.maxStops = maxStops;
         this.minimalTransferTime = minimalTransferTime;
         validateInputArguments();
@@ -31,7 +31,7 @@ public class FlightSearchAttributes {
         }
     }
 
-    public Duration getMinimalTransferTime() {
+    public Duration getMinTransferTime() {
         return minimalTransferTime;
     }
 }

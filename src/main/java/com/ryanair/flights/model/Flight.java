@@ -4,9 +4,12 @@ import java.time.LocalTime;
 import java.util.Objects;
 
 public class Flight {
-    private final String number;
-    private final LocalTime departureTime;
-    private final LocalTime arrivalTime;
+    private String number;
+    private LocalTime departureTime;
+    private LocalTime arrivalTime;
+
+    public Flight() {
+    }
 
     public Flight(String number, LocalTime departureTime, LocalTime arrivalTime) {
         this.number = number;
@@ -18,12 +21,24 @@ public class Flight {
         return number;
     }
 
+    public void setNumber(String number) {
+        this.number = number;
+    }
+
     public LocalTime getDepartureTime() {
         return departureTime;
     }
 
+    public void setDepartureTime(LocalTime departureTime) {
+        this.departureTime = departureTime;
+    }
+
     public LocalTime getArrivalTime() {
         return arrivalTime;
+    }
+
+    public void setArrivalTime(LocalTime arrivalTime) {
+        this.arrivalTime = arrivalTime;
     }
 
     @Override

@@ -15,12 +15,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Month;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 @ActiveProfiles({"unit", "all"})
-public class RyanairExternalApiServiceAsRouteServiceUnitTest {
+public class RouteServiceDecoratorsUniTest {
+
+    private static final String ROUTES_URL = "https://services-api.ryanair" +
+            ".com/locate/3/routes";
 
     private RouteService ryanairService;
 
@@ -42,11 +46,12 @@ public class RyanairExternalApiServiceAsRouteServiceUnitTest {
         Route mockConnectingWroDub = new Route("WRO", "DUB", null, false, false, "AIR_MALTA",
                 "ETHNIC");
 
+        ryanairService = new RyanairOperatorFilterDecorator(ryanairService);
+
         ResponseEntity<List<Route>> mockResponse =
                 new ResponseEntity<>(Arrays.asList(mockRyanairWroDub, mockConnectingWroDub,
                 mockLufthansaWroDub), HttpStatus.OK);
-        Mockito.when(restTemplate.exchange(RyanairExternalApiService.ROUTES_URL,
-                HttpMethod.GET, null,
+        Mockito.when(restTemplate.exchange(ROUTES_URL, HttpMethod.GET, null,
                 new ParameterizedTypeReference<List<Route>>() {
                 })).thenReturn(mockResponse);
 
@@ -65,11 +70,12 @@ public class RyanairExternalApiServiceAsRouteServiceUnitTest {
         Route mockConnectingWroDub = new Route("WRO", "DUB", "POR", false, false, "RYANAIR",
                 "ETHNIC");
 
+        ryanairService = new NoConnectingAirportFilterDecorator(ryanairService);
+
         ResponseEntity<List<Route>> mockResponse =
                 new ResponseEntity<>(Arrays.asList(mockRyanairWroDub, mockConnectingWroDub,
                         mockLufthansaWroDub), HttpStatus.OK);
-        Mockito.when(restTemplate.exchange(RyanairExternalApiService.ROUTES_URL,
-                HttpMethod.GET, null,
+        Mockito.when(restTemplate.exchange(ROUTES_URL, HttpMethod.GET, null,
                 new ParameterizedTypeReference<List<Route>>() {
                 })).thenReturn(mockResponse);
 
@@ -81,15 +87,14 @@ public class RyanairExternalApiServiceAsRouteServiceUnitTest {
     @Test
     @DisplayName("Given no routes returned from restTemplate when get Routes should return empty list")
     void givenNoRoutesReturned_whenGetRoutes_shouldReturnEmptyList() {
+
         ResponseEntity<List<Route>> mockResponse =
                 new ResponseEntity<>(null, HttpStatus.OK);
-        Mockito.when(restTemplate.exchange(RyanairExternalApiService.ROUTES_URL,
-                HttpMethod.GET, null,
+        Mockito.when(restTemplate.exchange(ROUTES_URL, HttpMethod.GET, null,
                 new ParameterizedTypeReference<List<Route>>() {
                 })).thenReturn(mockResponse);
         mockResponse = new ResponseEntity<>(Collections.emptyList(), HttpStatus.OK);
-        Mockito.when(restTemplate.exchange(RyanairExternalApiService.ROUTES_URL,
-                HttpMethod.GET, null,
+        Mockito.when(restTemplate.exchange(ROUTES_URL, HttpMethod.GET, null,
                 new ParameterizedTypeReference<List<Route>>() {
                 })).thenReturn(mockResponse);
         Assertions.assertEquals(Collections.emptyList(), ryanairService.getRoutes());

@@ -1,20 +1,24 @@
 package com.ryanair.flights.services.implementations;
 
+import com.ryanair.flights.model.ApiSchedule;
 import com.ryanair.flights.model.Route;
 import com.ryanair.flights.services.interfaces.RouteService;
+import com.ryanair.flights.services.interfaces.ScheduleService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
+import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.YearMonth;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
-public class RyanairExternalApiService implements RouteService {
-    private static final String RYANAIR_OPERATOR = "RYANAIR";
-    public static final String ROUTES_URL = "https://services-api.ryanair.com/locate/3/routes";
+@Service
+public class RyanairExternalApiService implements RouteService, ScheduleService {
+    private static final String ROUTES_URL = "https://services-api.ryanair.com/locate/3/routes";
+    private static final String SCHEDULE_URL = "https://services-api.ryanair" +
+            ".com/timtbl/3/schedules/{departure}/{arrival}/years/{year}/months/{month}";
 
     private RestTemplate restTemplate;
 
@@ -27,20 +31,12 @@ public class RyanairExternalApiService implements RouteService {
         List<Route> routes = restTemplate.exchange(ROUTES_URL, HttpMethod.GET, null,
                 new ParameterizedTypeReference<List<Route>>() {
                 }).getBody();
-        return routes == null ? Collections.emptyList() : filterRoutes(routes);
+        return routes == null ? Collections.emptyList() : routes;
     }
 
-    private List<Route> filterRoutes(List<Route> routes) {
-        return routes.stream().filter(getOnlyRyanairOperator()).filter(getOnlyNoConnectingAirport())
-                .collect(Collectors.toList());
-
-    }
-
-    private Predicate<Route> getOnlyRyanairOperator() {
-        return route -> route.getOperator().equalsIgnoreCase(RYANAIR_OPERATOR);
-    }
-
-    private Predicate<Route> getOnlyNoConnectingAirport() {
-        return route -> route.getConnectingAirport() == null;
+    @Override
+    public ApiSchedule getSchedule(String departureAirport, String arrivalAirport, YearMonth date) {
+        return restTemplate.getForObject(SCHEDULE_URL, ApiSchedule.class, departureAirport,
+                arrivalAirport, date.getYear(), date.getMonthValue());
     }
 }
