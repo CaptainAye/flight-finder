@@ -1,6 +1,9 @@
-package com.ryanair.flights.services.implementations;
+package com.ryanair.flights.services.decorators;
 
 import com.ryanair.flights.model.Route;
+import com.ryanair.flights.services.decorators.NoConnectingAirportFilterDecorator;
+import com.ryanair.flights.services.decorators.RyanairOperatorFilterDecorator;
+import com.ryanair.flights.services.implementations.RyanairExternalApiService;
 import com.ryanair.flights.services.interfaces.RouteService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;

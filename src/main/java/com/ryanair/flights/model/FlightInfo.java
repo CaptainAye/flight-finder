@@ -4,7 +4,7 @@ import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-public class Leg {
+public class FlightInfo {
 
     @NotNull
     private final String departureAirport;
@@ -18,7 +18,7 @@ public class Leg {
     @NotNull
     private final LocalDateTime arrivalDateTime;
 
-    public Leg(String departureAirport, String arrivalAirport, LocalDateTime departureDateTime, LocalDateTime arrivalDateTime) {
+    public FlightInfo(String departureAirport, String arrivalAirport, LocalDateTime departureDateTime, LocalDateTime arrivalDateTime) {
         this.departureAirport = departureAirport;
         this.arrivalAirport = arrivalAirport;
         this.departureDateTime = departureDateTime;
@@ -57,11 +57,11 @@ public class Leg {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        Leg leg = (Leg) o;
-        return Objects.equals(departureAirport, leg.departureAirport) &&
-                Objects.equals(arrivalAirport, leg.arrivalAirport) &&
-                Objects.equals(departureDateTime, leg.departureDateTime) &&
-                Objects.equals(arrivalDateTime, leg.arrivalDateTime);
+        FlightInfo flightInfo = (FlightInfo) o;
+        return Objects.equals(departureAirport, flightInfo.departureAirport) &&
+                Objects.equals(arrivalAirport, flightInfo.arrivalAirport) &&
+                Objects.equals(departureDateTime, flightInfo.departureDateTime) &&
+                Objects.equals(arrivalDateTime, flightInfo.arrivalDateTime);
     }
 
     @Override

@@ -10,9 +10,9 @@ public class FlightConnection {
 
     @NotNull
     @NotEmpty
-    private final List<Leg> legs;
+    private final List<FlightInfo> legs;
 
-    public FlightConnection(List<Leg> legs) {
+    public FlightConnection(List<FlightInfo> legs) {
         this.legs = new ArrayList<>(legs);
         validateArguments();
     }
@@ -27,11 +27,11 @@ public class FlightConnection {
         return legs.size() - 1;
     }
 
-    public List<Leg> getLegs() {
+    public List<FlightInfo> getLegs() {
         return legs;
     }
 
-    public void addFlight(int flightPosition, Leg flight) {
+    public void addFlight(int flightPosition, FlightInfo flight) {
         legs.add(flightPosition, flight);
     }
 
