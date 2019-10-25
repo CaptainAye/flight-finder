@@ -15,13 +15,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.Month;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 @ActiveProfiles({"unit", "all"})
-public class RouteServiceDecoratorsUniTest {
+public class RouteServiceDecoratorsUnitTest {
 
     private static final String ROUTES_URL = "https://services-api.ryanair" +
             ".com/locate/3/routes";
