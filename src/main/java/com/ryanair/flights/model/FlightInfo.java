@@ -1,56 +1,72 @@
 package com.ryanair.flights.model;
 
-import javax.validation.constraints.NotNull;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.ryanair.flights.utils.ValidationHelper;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
 
+import static com.ryanair.flights.utils.DateTimeFormatHelper.ISO_DATE_TIME;
+import static com.ryanair.flights.utils.ValidationHelper.*;
+
 public class FlightInfo {
 
-    @NotNull
-    private final String departureAirport;
+    private IataCode departureAirport;
 
-    @NotNull
-    private final String arrivalAirport;
+    private IataCode arrivalAirport;
 
-    @NotNull
-    private final LocalDateTime departureDateTime;
+    private LocalDateTime departureDateTime;
 
-    @NotNull
-    private final LocalDateTime arrivalDateTime;
+    private LocalDateTime arrivalDateTime;
 
-    public FlightInfo(String departureAirport, String arrivalAirport, LocalDateTime departureDateTime, LocalDateTime arrivalDateTime) {
-        this.departureAirport = departureAirport;
-        this.arrivalAirport = arrivalAirport;
+    public FlightInfo(String departureAirport, String arrivalAirport,
+                      LocalDateTime departureDateTime, LocalDateTime arrivalDateTime) {
+        this.departureAirport = IataCode.of(departureAirport);
+        this.arrivalAirport = IataCode.of(arrivalAirport);
         this.departureDateTime = departureDateTime;
         this.arrivalDateTime = arrivalDateTime;
-        validateNotEmpty();
+        validateDatesRange(departureDateTime, arrivalDateTime);
     }
 
-    private void validateNotEmpty() {
-        boolean departureAirportIsEmpty = departureAirport == null || departureAirport.isEmpty();
-        boolean arrivalAirportIsEmpty = arrivalAirport == null || arrivalAirport.isEmpty();
-        boolean departureDateTimeIsNull = departureDateTime == null;
-        boolean arrivalDateTimeIsNull = arrivalDateTime == null;
-
-        if (departureAirportIsEmpty || arrivalAirportIsEmpty || departureDateTimeIsNull || arrivalDateTimeIsNull) {
-            throw new IllegalArgumentException("Leg arguments cannot be null nor empty");
-        }
+    public FlightInfo(FlightInfo other) {
+        this(other.getDepartureAirport(), other.getArrivalAirport(), other.getDepartureDateTime()
+                , other.getArrivalDateTime());
     }
 
     public String getDepartureAirport() {
-        return departureAirport;
+        return departureAirport.getIataCode();
     }
 
     public String getArrivalAirport() {
-        return arrivalAirport;
+        return arrivalAirport.getIataCode();
     }
 
+    @JsonFormat(pattern = ISO_DATE_TIME)
     public LocalDateTime getDepartureDateTime() {
         return departureDateTime;
     }
 
+    @JsonFormat(pattern = ISO_DATE_TIME)
     public LocalDateTime getArrivalDateTime() {
         return arrivalDateTime;
+    }
+
+    public void setDepartureAirport(String departureAirport) {
+        this.departureAirport = IataCode.of(departureAirport);
+    }
+
+    public void setArrivalAirport(String arrivalAirport) {
+        this.arrivalAirport = IataCode.of(arrivalAirport);
+    }
+
+    public void setDepartureDateTime(LocalDateTime departureDateTime) {
+        this.departureDateTime = departureDateTime;
+        validateDatesRange(departureDateTime, arrivalDateTime);
+    }
+
+    public void setArrivalDateTime(LocalDateTime arrivalDateTime) {
+        this.arrivalDateTime = arrivalDateTime;
+        validateDatesRange(departureDateTime, arrivalDateTime);
     }
 
     @Override
@@ -71,9 +87,9 @@ public class FlightInfo {
 
     @Override
     public String toString() {
-        return "Leg{" +
-                "departureAirport='" + departureAirport + '\'' +
-                ", arrivalAirport='" + arrivalAirport + '\'' +
+        return "FlightInfo{" +
+                "departureAirport=" + departureAirport +
+                ", arrivalAirport=" + arrivalAirport +
                 ", departureDateTime=" + departureDateTime +
                 ", arrivalDateTime=" + arrivalDateTime +
                 '}';

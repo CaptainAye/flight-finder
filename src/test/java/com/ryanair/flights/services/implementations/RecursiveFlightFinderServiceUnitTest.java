@@ -19,7 +19,6 @@ import org.springframework.test.context.ActiveProfiles;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.Month;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -35,6 +34,10 @@ public class RecursiveFlightFinderServiceUnitTest {
     private Route mockWroStnRoute = new Route("WRO", "STN", null, false, false, "RYANAIR",
             "ETHNIC");
     private Route mockStnDubRoute = new Route("STN", "DUB", null, false, false, "RYANAIR",
+            "ETHNIC");
+    private Route mockWroGdnRoute = new Route("WRO", "GDN", null, false, false, "RYANAIR",
+            "ETHNIC");
+    private Route mockGdnDubRoute = new Route("GDN", "DUB", null, false, false, "RYANAIR",
             "ETHNIC");
 
     private LocalDateTime date_2019_10_31_14_30 = LocalDateTime.of(2019, Month.OCTOBER, 31, 14, 30);
@@ -53,29 +56,33 @@ public class RecursiveFlightFinderServiceUnitTest {
             date_2019_10_31_12_30);
     private FlightInfo wroStnAfternoonFlight = new FlightInfo("WRO", "STN", date_2019_10_31_12_30,
             date_2019_10_31_15_30);
-    private FlightFinderService flightFinderService;
-
+    private FlightInfo wroGdnAfternoonFlight = new FlightInfo("WRO", "GDN", date_2019_10_31_12_30,
+            date_2019_10_31_15_30);
+    private FlightInfo gdnDubEveningFlight = new FlightInfo("GDN", "DUB", date_2019_10_31_18_30,
+            date_2019_10_31_19_30);
     private FlightConnection expectedTransferFlight1 =
             new FlightConnection(Arrays.asList(wroStnMorningFlight
-                    , stnDubEveningFlight));
+                    , stnDubAfternoonFlight));
     private FlightConnection expectedTransferFlight2 =
             new FlightConnection(Arrays.asList(wroStnMorningFlight
-                    , stnDubAfternoonFlight));
+                    , stnDubEveningFlight));
     private FlightConnection expectedTransferFlight3 =
             new FlightConnection(Arrays.asList(wroStnAfternoonFlight, stnDubEveningFlight));
-
+    private FlightConnection expectedTransferFlight4 =
+            new FlightConnection(Arrays.asList(wroGdnAfternoonFlight, gdnDubEveningFlight));
     private List<FlightConnection> expectedTransferFlightConnections =
             Arrays.asList(expectedTransferFlight1,
-                    expectedTransferFlight2, expectedTransferFlight3);
-
-    private List<FlightConnection> expectedDirectFlightConnections = Collections.singletonList(
-            new FlightConnection(Collections.singletonList(wroDubFlight)));
-
-    @Mock
-    private ScheduleFlightsService scheduleFlightsService;
+                    expectedTransferFlight2, expectedTransferFlight3, expectedTransferFlight4);
+    private FlightConnection expectedDirectFlight =
+            new FlightConnection(Collections.singletonList(wroDubFlight));
+    private List<FlightConnection> expectedDirectFlightConnections =
+            Collections.singletonList(expectedDirectFlight);
 
     @Mock
     private RouteService routeService;
+    @Mock
+    private ScheduleFlightsService scheduleFlightsService;
+    private FlightFinderService flightFinderService;
 
     @BeforeEach
     private void setup() {
@@ -154,29 +161,32 @@ public class RecursiveFlightFinderServiceUnitTest {
     }
 
     private void setupMocksForRoutes() {
-        Mockito.when(routeService.getRoutes()).thenReturn(Arrays.asList(mockWroDubRoute,
-                mockWroStnRoute, mockStnDubRoute));
+        Mockito.when(routeService.getRoutes()).thenReturn(Arrays.asList(mockWroStnRoute,
+                mockWroDubRoute, mockStnDubRoute, mockWroGdnRoute, mockGdnDubRoute));
     }
 
     private void setupMocksForOneStopTest(LocalDateTime actualStartDateTime,
                                           LocalDateTime actualEndDateTime) {
         FlightInfo wroStnSearchInfo = new FlightInfo(mockWroStnRoute.getAirportFrom(),
                 mockWroStnRoute.getAirportTo(), actualStartDateTime, actualEndDateTime);
-
         Mockito.when(scheduleFlightsService.getScheduleFlights(wroStnSearchInfo))
                 .thenReturn(Arrays.asList(wroStnMorningFlight, wroStnAfternoonFlight));
-        LocalDateTime stnDunMorningStartTime =
-                wroStnMorningFlight.getArrivalDateTime().plus(minTransferTime);
-        LocalDateTime stnDunAfternoonStartTime =
-                wroStnAfternoonFlight.getArrivalDateTime().plus(minTransferTime);
-        FlightInfo stnDubSearchInfo1 = new FlightInfo(mockStnDubRoute.getAirportFrom(),
-                mockStnDubRoute.getAirportTo(), stnDunMorningStartTime, actualEndDateTime);
-        Mockito.when(scheduleFlightsService.getScheduleFlights(stnDubSearchInfo1))
-                .thenReturn(Arrays.asList(stnDubEveningFlight, stnDubAfternoonFlight));
-        FlightInfo stnDubSearchInfo2 = new FlightInfo(mockStnDubRoute.getAirportFrom(),
-                mockStnDubRoute.getAirportTo(), stnDunAfternoonStartTime, actualEndDateTime);
-        Mockito.when(scheduleFlightsService.getScheduleFlights(stnDubSearchInfo2))
-                .thenReturn(Collections.singletonList(stnDubEveningFlight));
+
+        FlightInfo stnDubSearchInfo = new FlightInfo(mockStnDubRoute.getAirportFrom(),
+                mockStnDubRoute.getAirportTo(), actualStartDateTime, actualEndDateTime);
+        Mockito.when(scheduleFlightsService.getScheduleFlights(stnDubSearchInfo))
+                .thenReturn(Arrays.asList(stnDubAfternoonFlight, stnDubEveningFlight));
+
+        FlightInfo wroGdnSearchInfo = new FlightInfo(mockWroGdnRoute.getAirportFrom(),
+                mockWroGdnRoute.getAirportTo(), actualStartDateTime, actualEndDateTime);
+        Mockito.when(scheduleFlightsService.getScheduleFlights(wroGdnSearchInfo))
+                .thenReturn(Collections.singletonList(wroGdnAfternoonFlight));
+
+        FlightInfo gdnDubSearchInfo = new FlightInfo(mockGdnDubRoute.getAirportFrom(),
+                mockGdnDubRoute.getAirportTo(), actualStartDateTime, actualEndDateTime);
+        Mockito.when(scheduleFlightsService.getScheduleFlights(gdnDubSearchInfo))
+                .thenReturn(Collections.singletonList(gdnDubEveningFlight));
+
     }
 
     @Test
@@ -191,9 +201,9 @@ public class RecursiveFlightFinderServiceUnitTest {
         setupMocksForDirectFlightTest(actualStartDateTime, actualEndDateTime);
         setupMocksForOneStopTest(actualStartDateTime, actualEndDateTime);
 
-        List<FlightConnection> expectedFlightConnections =
-                new ArrayList<>(expectedDirectFlightConnections);
-        expectedFlightConnections.addAll(expectedTransferFlightConnections);
+        List<FlightConnection> expectedFlightConnections = Arrays.asList(expectedTransferFlight1,
+                expectedTransferFlight2, expectedTransferFlight3, expectedDirectFlight,
+                expectedTransferFlight4);
 
         SearchCriteria attributes = new SearchCriteria(maxStops, minTransferTime);
 

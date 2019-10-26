@@ -3,8 +3,8 @@ package com.ryanair.flights.model;
 import java.util.Objects;
 
 public class Route {
-    private String airportFrom;
-    private String airportTo;
+    private IataCode airportFrom;
+    private IataCode airportTo;
     private String connectingAirport;
     private boolean newRoute;
     private boolean seasonalRoute;
@@ -14,8 +14,8 @@ public class Route {
     public Route() {
     }
     public Route(String airportFrom, String airportTo, String connectingAirport, boolean newRoute, boolean seasonalRoute, String operator, String group) {
-        this.airportFrom = airportFrom;
-        this.airportTo = airportTo;
+        this.airportFrom = IataCode.of(airportFrom);
+        this.airportTo = IataCode.of(airportTo);
         this.connectingAirport = connectingAirport;
         this.newRoute = newRoute;
         this.seasonalRoute = seasonalRoute;
@@ -24,19 +24,19 @@ public class Route {
     }
 
     public String getAirportFrom() {
-        return airportFrom;
+        return airportFrom.getIataCode();
     }
 
     public void setAirportFrom(String airportFrom) {
-        this.airportFrom = airportFrom;
+        this.airportFrom = IataCode.of(airportFrom);
     }
 
     public String getAirportTo() {
-        return airportTo;
+        return airportTo.getIataCode();
     }
 
     public void setAirportTo(String airportTo) {
-        this.airportTo = airportTo;
+        this.airportTo = IataCode.of(airportTo);
     }
 
     public String getConnectingAirport() {

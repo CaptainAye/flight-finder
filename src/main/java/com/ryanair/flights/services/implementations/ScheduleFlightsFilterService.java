@@ -16,6 +16,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.ryanair.flights.utils.ListHelper.filterList;
+import static com.ryanair.flights.utils.ListHelper.getListOrEmpty;
 
 @Service
 public class ScheduleFlightsFilterService implements ScheduleFlightsService {
@@ -30,16 +31,18 @@ public class ScheduleFlightsFilterService implements ScheduleFlightsService {
     public List<FlightInfo> getScheduleFlights(FlightInfo flightInfo) {
         List<YearMonth> datesRange = getYearMonthRange(flightInfo.getDepartureDateTime(),
                 flightInfo.getArrivalDateTime());
-        List<FlightInfo> flights = getScheduleFlights(flightInfo, datesRange);
+        List<FlightInfo> flights = getScheduleFlights(flightInfo.getDepartureAirport(),
+                flightInfo.getArrivalAirport(), datesRange);
         return filterFlightsByDates(flights, flightInfo.getDepartureDateTime(),
                 flightInfo.getArrivalDateTime());
     }
 
-    private List<FlightInfo> getScheduleFlights(FlightInfo flightInfo, List<YearMonth> datesRange) {
+    private List<FlightInfo> getScheduleFlights(String departureAirport, String arrivalAirport,
+                                                List<YearMonth> datesRange) {
         return datesRange.stream()
                 .flatMap(date ->
-                        scheduleService.getScheduleFlights(flightInfo.getDepartureAirport(),
-                                flightInfo.getArrivalAirport(), date).stream())
+                        getListOrEmpty(scheduleService.getScheduleFlights(
+                                departureAirport, arrivalAirport, date)).stream())
                 .collect(Collectors.toList());
     }
 
@@ -50,7 +53,7 @@ public class ScheduleFlightsFilterService implements ScheduleFlightsService {
                 flight -> flight.getDepartureDateTime().isAfter(departureDateTime) ||
                         flight.getDepartureDateTime().equals(departureDateTime);
         Predicate<FlightInfo> isFlightTimeBeforeOrEqualsArrivalFilter =
-                flight -> flight.getArrivalDateTime().isAfter(arrivalDateTime) ||
+                flight -> flight.getArrivalDateTime().isBefore(arrivalDateTime) ||
                         flight.getArrivalDateTime().equals(arrivalDateTime);
         List<Predicate<FlightInfo>> filters =
                 Arrays.asList(isFlightTimeAfterOrEqualsDepartureFilter,

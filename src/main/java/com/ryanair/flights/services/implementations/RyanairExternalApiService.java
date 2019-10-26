@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
@@ -38,8 +39,15 @@ public class RyanairExternalApiService implements RouteService, ScheduleService 
 
     @Override
     public ApiSchedule getSchedule(String departureAirport, String arrivalAirport, YearMonth date) {
-        return restTemplate.getForObject(SCHEDULE_URL, ApiSchedule.class, departureAirport,
-                arrivalAirport, date.getYear(), date.getMonthValue());
+        ApiSchedule schedule = new ApiSchedule(date.getMonth(), Collections.emptyList());
+        try {
+            schedule = restTemplate.getForObject(SCHEDULE_URL, ApiSchedule.class, departureAirport,
+                    arrivalAirport, date.getYear(), date.getMonthValue());
+
+        } catch (HttpClientErrorException e) {
+            System.out.println("Didnt find any schedule for Route : " + departureAirport + "->" + arrivalAirport + " in " + date);
+        }
+        return schedule;
     }
 
     @Override
@@ -66,8 +74,12 @@ public class RyanairExternalApiService implements RouteService, ScheduleService 
                                                 LocalDate flightDate, List<Flight> flights) {
         List<FlightInfo> flightList = new ArrayList<>();
         for (Flight flight : flights) {
+            boolean isFlightDuringDayChange =
+                    flight.getDepartureTime().isAfter(flight.getArrivalTime());
             LocalDateTime departure = LocalDateTime.of(flightDate, flight.getDepartureTime());
-            LocalDateTime arrival = LocalDateTime.of(flightDate, flight.getArrivalTime());
+            LocalDateTime arrival = isFlightDuringDayChange ?
+                    LocalDateTime.of(flightDate.plusDays(1), flight.getArrivalTime()) :
+                    LocalDateTime.of(flightDate, flight.getArrivalTime());
             flightList.add(new FlightInfo(departureAirport, arrivalAirport, departure,
                     arrival));
         }

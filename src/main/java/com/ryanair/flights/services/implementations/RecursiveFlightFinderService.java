@@ -18,10 +18,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static com.ryanair.flights.utils.ListHelper.filterList;
 import static com.ryanair.flights.utils.ListHelper.getListOrEmpty;
 
 @Service
@@ -41,7 +39,8 @@ public class RecursiveFlightFinderService implements FlightFinderService {
     public List<FlightConnection> findFlights(FlightInfo destination, SearchCriteria criteria) {
         validateInputArguments(destination, criteria);
         List<Route> routes = getRoutes();
-        return findFlights(destination, criteria, routes);
+        return findFlights(destination, criteria.getMaxStops(), criteria.getMinTransferTime(),
+                routes);
     }
 
     private void validateInputArguments(FlightInfo destination, SearchCriteria criteria) {
@@ -55,32 +54,117 @@ public class RecursiveFlightFinderService implements FlightFinderService {
         }
     }
 
+    private List<FlightConnection> findFlights(FlightInfo destination, int maxStops,
+                                               Duration minTransferTime, List<Route> allRoutes) {
+        List<Route> outgoingRoutes =
+                allRoutes.stream()
+                        .filter(route -> route.getAirportFrom().equals(destination.getDepartureAirport()))
+                        .collect(Collectors.toList());
+        return findFlights(outgoingRoutes, destination, maxStops, minTransferTime, allRoutes);
+    }
+
+    private List<FlightConnection> findFlights(List<Route> outgoingRoutes, FlightInfo destination,
+                                               int maxStops, Duration minTransferTime,
+                                               List<Route> allRoutes) {
+        List<FlightConnection> connections = new ArrayList<>();
+        for (Route outgoingRoute : outgoingRoutes) {
+            connections.addAll(findFlights(outgoingRoute, destination, maxStops, minTransferTime,
+                    allRoutes));
+        }
+        return connections;
+    }
+
+    private List<FlightConnection> findFlights(Route outgoingRoute, FlightInfo destination,
+                                               int maxStops, Duration minTransferTime,
+                                               List<Route> allRoutes) {
+        List<FlightConnection> connections = new ArrayList<>();
+        if (isDirectRoute(outgoingRoute, destination.getArrivalAirport())) {
+            connections = findDirectConnections(outgoingRoute, destination);
+        } else if (isAdditionalStopAllowed(maxStops)) {
+            connections = findTransferFlights(outgoingRoute, destination, maxStops,
+                    minTransferTime, allRoutes);
+        }
+        return connections;
+    }
+
+    private List<FlightConnection> findTransferFlights(Route outgoingRoute,
+                                                       FlightInfo destination, int maxStops,
+                                                       Duration minTransferTime,
+                                                       List<Route> allRoutes) {
+
+        FlightInfo nextDestination = new FlightInfo(destination);
+        nextDestination.setDepartureAirport(outgoingRoute.getAirportTo());
+        List<FlightConnection> nextStopConnections =
+                findFlights(nextDestination, maxStops - 1, minTransferTime, allRoutes);
+        FlightInfo outgoingFlightInfo = new FlightInfo(outgoingRoute.getAirportFrom(),
+                outgoingRoute.getAirportTo(), destination.getDepartureDateTime(),
+                destination.getArrivalDateTime());
+        return addOutgoingFlightsToConnections(nextStopConnections, outgoingFlightInfo,
+                minTransferTime);
+    }
+
+    private List<FlightConnection> addOutgoingFlightsToConnections(List<FlightConnection> nextStopConnections,
+                                                                   FlightInfo outgoingFlightInfo,
+                                                                   Duration minTransferTime) {
+        List<FlightConnection> connections = new ArrayList<>();
+        if (!nextStopConnections.isEmpty()) {
+            List<FlightInfo> outgoingFlightsSchedule =
+                    getScheduleFlights(outgoingFlightInfo);
+            connections = addFlightsToConnections(outgoingFlightsSchedule,
+                    nextStopConnections, minTransferTime);
+        }
+        return connections;
+    }
+
+    private List<FlightConnection> addFlightsToConnections(List<FlightInfo> flightsToAdd,
+                                                           List<FlightConnection> currentConnections,
+                                                           Duration minTransferTime) {
+        return currentConnections.stream()
+                .flatMap(connection ->
+                        addFlightsToConnection(flightsToAdd, connection, minTransferTime).stream())
+                .collect(Collectors.toList());
+    }
+
+    private List<FlightConnection> addFlightsToConnection(List<FlightInfo> flightsToAdd,
+                                                          FlightConnection currentConnection,
+                                                          Duration minTransferTime) {
+        return flightsToAdd.stream().flatMap(flight -> addFlightToConnection(flight,
+                currentConnection, minTransferTime).stream()).collect(Collectors.toList());
+    }
+
+    private List<FlightConnection> addFlightToConnection(FlightInfo flight,
+                                                         FlightConnection connection,
+                                                         Duration minTransferTime) {
+        List<FlightConnection> connections = new ArrayList<>();
+        LocalDateTime nextDestinationEarliestDepartureTime =
+                flight.getArrivalDateTime().plus(minTransferTime);
+        LocalDateTime nextDestinationDepartureDateTime =
+                connection.getLegs().get(0).getDepartureDateTime();
+        boolean isTransferTimeLongEnough =
+                nextDestinationDepartureDateTime.isAfter(nextDestinationEarliestDepartureTime) ||
+                        nextDestinationDepartureDateTime.equals(nextDestinationEarliestDepartureTime);
+        if (isTransferTimeLongEnough) {
+            FlightConnection newConnection =
+                    new FlightConnection(connection.getLegs());
+            newConnection.addFlight(0, flight);
+            connections.add(newConnection);
+        }
+        return connections;
+    }
+
+    private List<FlightConnection> findDirectConnections(Route outgoingRoute,
+                                                         FlightInfo destination) {
+        FlightInfo outgoingFlightInfo = new FlightInfo(outgoingRoute.getAirportFrom(),
+                outgoingRoute.getAirportTo(), destination.getDepartureDateTime(),
+                destination.getArrivalDateTime());
+        List<FlightInfo> flights = getScheduleFlights(outgoingFlightInfo);
+        Function<FlightInfo, FlightConnection> flightConnectionMapper =
+                flight -> new FlightConnection(Collections.singletonList(flight));
+        return flights.stream().map(flightConnectionMapper).collect(Collectors.toList());
+    }
+
     private List<Route> getRoutes() {
         return getListOrEmpty(routeService.getRoutes());
-    }
-
-    private List<FlightConnection> findFlights(FlightInfo destination, SearchCriteria criteria,
-                                               List<Route> routes) {
-        String departureAirport = destination.getDepartureAirport();
-        List<FlightConnection> flightConnections = new ArrayList<>();
-
-        List<Route> departureRoutes = filterRouteDepartureAirport(routes, departureAirport);
-
-        for (Route route : departureRoutes) {
-            flightConnections.addAll(findFlights(route, destination, criteria, routes));
-        }
-        return flightConnections;
-    }
-
-    private List<FlightConnection> findFlights(Route route, FlightInfo destination,
-                                               SearchCriteria criteria,
-                                               List<Route> allRoutes) {
-        FlightInfo nextFlightInfo = new FlightInfo(route.getAirportFrom(), route.getAirportTo(),
-                destination.getDepartureDateTime(), destination.getArrivalDateTime());
-        List<FlightInfo> scheduledFlights = getScheduleFlights(nextFlightInfo);
-        return isDirectRoute(route, destination.getArrivalAirport()) ?
-                findDirectFlights(scheduledFlights) :
-                findTransferFlights(scheduledFlights, destination, criteria, allRoutes);
     }
 
     private List<FlightInfo> getScheduleFlights(FlightInfo flightInfo) {
@@ -90,58 +174,6 @@ public class RecursiveFlightFinderService implements FlightFinderService {
     private boolean isDirectRoute(Route route, String destinationAirport) {
         return route.getAirportTo().equals(destinationAirport);
     }
-
-    private List<FlightConnection> findDirectFlights(List<FlightInfo> routeFlights) {
-        Function<FlightInfo, FlightConnection> flightConnectionMapper =
-                flight -> new FlightConnection(Collections.singletonList(flight));
-        return routeFlights.stream().map(flightConnectionMapper).collect(Collectors.toList());
-    }
-
-    private List<FlightConnection> findTransferFlights(List<FlightInfo> routeFlights,
-                                                       FlightInfo destination,
-                                                       SearchCriteria attributes,
-                                                       List<Route> allRoutes) {
-        List<FlightConnection> flightConnections = new ArrayList<>();
-        if (isAdditionalStopAllowed(attributes.getMaxStops())) {
-            for (FlightInfo flight : routeFlights) { //TODO CAN BE REMOVED IF METHOD CHANGED
-                flightConnections.addAll(findTransferFlights(flight, destination, attributes,
-                        allRoutes));
-            }
-        }
-        return flightConnections;
-    }
-
-    private List<FlightConnection> findTransferFlights(FlightInfo flight, FlightInfo destination,
-                                                       SearchCriteria criteria,
-                                                       List<Route> allRoutes) {
-        FlightInfo nextDestination = getNextDestination(flight, destination,
-                criteria.getMinTransferTime());
-        criteria.decrementMaxStops();
-        List<FlightConnection> foundConnections = findFlights(nextDestination, criteria,
-                allRoutes);
-        return addFlightToConnections(foundConnections, flight);
-    }
-
-    private FlightInfo getNextDestination(FlightInfo latestFlight, FlightInfo destination,
-                                          Duration minTransferTime) {
-        LocalDateTime nextEarliestDeparture =
-                latestFlight.getArrivalDateTime().plus(minTransferTime);
-        return new FlightInfo(latestFlight.getArrivalAirport(), destination.getArrivalAirport(),
-                nextEarliestDeparture, destination.getArrivalDateTime());
-    }
-
-    private List<FlightConnection> addFlightToConnections(List<FlightConnection> foundConnections
-            , FlightInfo flight) {
-        foundConnections.forEach(connection -> connection.addFlight(0, flight));
-        return foundConnections;
-    }
-
-    private List<Route> filterRouteDepartureAirport(List<Route> routes, String departureAirport) {
-        Predicate<Route> departureRoutesFilter =
-                route -> route.getAirportFrom().equals(departureAirport);
-        return filterList(routes, departureRoutesFilter);
-    }
-
     private boolean isAdditionalStopAllowed(int maxNumberOfStops) {
         return maxNumberOfStops > 0;
     }

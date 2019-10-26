@@ -14,7 +14,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.ExpectedCount;
 import org.springframework.test.web.client.MockRestServiceServer;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
@@ -22,6 +21,7 @@ import java.net.URI;
 import java.time.LocalTime;
 import java.time.Month;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -32,7 +32,6 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 @SpringBootTest
 public class RyanairApiScheduleServiceTest {
-
 
     //@formatter:off
     private static final String SCHEDULE_BODY_RESPONSE =
@@ -90,15 +89,16 @@ public class RyanairApiScheduleServiceTest {
 
 
     @Test
-    void givenExternalApiReturn4xx_whenGetRoutes_shouldReturnRouteList() throws Exception {
+    void givenExternalApiReturn4xx_whenGetSchedule_shouldReturnEmptySchedule() throws Exception {
         mockServer.expect(ExpectedCount.once(), requestTo(new URI("https://services-api.ryanair" +
                 ".com/timtbl/3/schedules/DUB/WRO/years/2019/months/11")))
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withStatus(HttpStatus.NOT_FOUND));
+        ApiSchedule expectedSchedule = new ApiSchedule(Month.NOVEMBER, new ArrayList<>());
 
-        Assertions.assertThrows(HttpClientErrorException.class,
-                () -> externalApiService.getSchedule("DUB", "WRO",
-                        YearMonth.of(2019, 11)));
+        ApiSchedule actualSchedule = externalApiService.getSchedule("DUB", "WRO",
+                        YearMonth.of(2019, 11));
+        Assertions.assertEquals(expectedSchedule, actualSchedule);
     }
 
     @Test

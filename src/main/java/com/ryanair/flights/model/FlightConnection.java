@@ -8,19 +8,10 @@ import java.util.Objects;
 
 public class FlightConnection {
 
-    @NotNull
-    @NotEmpty
     private final List<FlightInfo> legs;
 
-    public FlightConnection(List<FlightInfo> legs) {
+    public FlightConnection(@NotNull @NotEmpty List<FlightInfo> legs) {
         this.legs = new ArrayList<>(legs);
-        validateArguments();
-    }
-
-    private void validateArguments() {
-        if (legs == null || legs.isEmpty()) {
-            throw new IllegalArgumentException("FlightConnection legs list cannot be empty");
-        }
     }
 
     public int getStops() {
